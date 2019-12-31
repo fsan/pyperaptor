@@ -8,7 +8,7 @@ setup(
   author = 'fsan',
   author_email = 'pabyo sansinaeti at g mail com',
   url = 'https://github.com/fsan/pyperaptor',
-  download_url = 'https://github.com/fsan/pyperaptor/archive/v_001.tar.gz',
+  download_url = 'https://github.com/fsan/pyperaptor/releases/download/0.0.1-beta/pyperaptor-0.0.1.tar.gz'
   keywords = ['pipeline', 'dinossaurs', 'threading'],
   install_requires=[
       ],

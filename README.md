@@ -203,6 +203,7 @@ The first output for printer comes from the result of sum1 itself and the second
 
 * Multiple Devices
 The Device entity may have multiple resources available. You can treat Device as a semaphore, and pass a number of available resources in the parameter
+
 **Think in Devices as wrappers for Semaphores (because they are)**
 
 

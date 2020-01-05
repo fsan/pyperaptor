@@ -32,10 +32,6 @@ from pyperaptor import Pipeline, Node
 def sum1(x):
     return x + 1
 
-def a_generator():
-    for x in range(10):
-        yield x
-
 p = Pipeline()
 p += Node(sum1)
 
@@ -107,7 +103,7 @@ def a_generator():
     for x in range(10):
         yield x
 
-p = Pipeline(parallel = True, workers=10)
+p = Pipeline(parallel=True, workers=10)
 p += Node(a_generator) + \
      sum1
 

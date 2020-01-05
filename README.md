@@ -172,8 +172,9 @@ p.process(list(a_generator()))
 
 
 ## Other features
+
 * Hold and Refer
-- In single thread mode, you can refer to another item result if you name it and refer to it with *refer* and *hold* parameter
+In single thread mode, you can refer to another item result if you name it and refer to it with *refer* and *hold* parameter
 
 ```python
 from pyperaptor import Pipeline, Node
@@ -199,6 +200,21 @@ p.process(list(range(10)))
 
 ```
 The first output for printer comes from the result of sum1 itself and the second output was recovered from *refer* and appended to *args
+
+* Multiple Devices
+The Device entity may have multiple resources available. You can treat Device as a semaphore, and pass a number of available resources in the parameter
+**Think in Devices as wrappers for Semaphores (because they are)**
+
+
+```python
+
+ANY_RESOURCE = Device("Some Name", 5)
+
+p = Pipeline()
+p += Node(a_function) + \
+     Node(other_function, dev=ANY_RESOURCE)
+
+```
 
 
 ## PypeRaptor algebrae

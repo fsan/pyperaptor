@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'pyperaptor',
   packages = ['pyperaptor'],
-  version = '0.1.0',
+  version = '0.1.1',
   license='MIT',
   description = 'Small pipeline organizer for multiprocessing execution',
   long_description = """
@@ -16,31 +16,8 @@ setup(
     A generator can be part of the pipeline, and is recommended to be the first item to when using Pipeline in parallel mode.
     When in parallel mode, PypeRaptor provides a Device as in a way to reserve resources and avoid racing conditions among its threads.
 
-    ```python
-    from pyperaptor import Pipeline, Device, Node
-
-    def sum1(x):
-        return x + 1
-
-    def printer(x):
-        print(x, end=" ")
-        return x
-
-    def a_generator():
-        for x in range(10):
-            yield x
-            
-    TERM = Device("term1")
-            
-    p = Pipeline(parallel=True, workers=10)
-    p += Node(sum1) + \
-         Node(printer, dev=TERM)
-
-    p.lock()
-
-    p.process(list(a_generator()))
-    # 1 2 3 4 5 10 7 8 9 6
-    ```
+    For examples go to:
+    http://github.com/fsan/pyperaptor
 
   """,
   author = 'fsan',

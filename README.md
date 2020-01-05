@@ -1,7 +1,7 @@
 # PypeRaptor
 **Version:**  0.1.0
 
-PypeRator is a library that provides a functional pipeline structure.
+PypeRaptor is a library that provides a functional pipeline structure.
 Each execution from the pipeline takes an input item from beginning to end and return the result.
 The Pipeline may be modified by add operator and expects a Node.
 To execute a Pipeline for a single item, user can execute **push** function with item. This execution will pushes the input

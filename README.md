@@ -173,13 +173,36 @@ p.lock()
 p.process(list(a_generator()))
 # 1 2 3 4 5 10 7 8 9 6
 ```
-Problem solved
 
-## Others honorable mention
+
+## Other features
+* Hold and Refer
 - In single thread mode, you can refer to another item result if you name it and refer to it with *refer* and *hold* parameter
 
-```
+```python
+from pyperaptor import Pipeline, Node
 
+def sum1(x):
+    return x + 1
+
+def printer(*x):
+    print(*x)
+    return x
+
+p = Pipeline()
+p += Node(sum1, keyName="sum1_result", hold=True) + \
+     Node(printer, refer=["sum1_result"])
+
+p.lock()
+p.process(list(range(10)))
+# 1 1
+# 2 2
+# 3 3
+# 4 4
+# ...
+
+```
+The first output for printer comes from the result of sum1 itself and the second output was recovered from *refer* and appended to *args
 
 
 ## PypeRaptor algebrae

@@ -1,5 +1,5 @@
 # PypeRaptor
-**Version:**  0.1.0
+**Version:**  0.1.1
 
 PypeRaptor is a library that provides a functional pipeline structure.
 Each execution from the pipeline takes an input item from beginning to end and return the result.

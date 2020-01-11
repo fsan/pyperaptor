@@ -1,5 +1,5 @@
 # PypeRaptor
-**Version:**  0.1.1
+**Version:**  0.1.2
 
 PypeRaptor is a library that provides a functional pipeline structure.
 Each execution from the pipeline takes an input item from beginning to end and return the result.
@@ -82,6 +82,30 @@ p = Pipeline()
 p += Node(a_generator) + \
      sum1
 
+
+p.lock()
+
+results = p.process()
+print(results)
+
+# [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+```
+* Using a function list as input for the pipeline
+
+```python
+from pyperaptor import Pipeline, Node
+
+def sum1(x):
+    return x + 1
+
+def sum2(x):
+    return x + 2
+
+def a_generator():
+    for x in range(10):
+        yield x
+
+p = Pipeline([sum1, sum2])
 
 p.lock()
 

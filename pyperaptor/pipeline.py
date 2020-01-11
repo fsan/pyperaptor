@@ -109,7 +109,9 @@ class PipelineUnsupportedReferInParallelMode(Exception):
 
 
 class Pipeline():
-    def __init__(self, parallel: bool = False, workers: int = 6,
+    def __init__(self, functions_list: list = None,
+                 parallel: bool = False,
+                 workers: int = 6,
                  executor: concurrent.futures.Executor = ThreadPoolExecutor):
         self.__tasks__ = []
         self.holding = {}
@@ -120,6 +122,10 @@ class Pipeline():
             parallel=parallel,
             workers=workers,
             executor=executor)
+        if functions_list is not None and len(functions_list) > 0:
+             for i in functions_list:
+                 self.add(Node(i))
+
 
     def set_parallel(
             self,

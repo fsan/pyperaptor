@@ -11,6 +11,8 @@ To execute several items, user can set an Iterable in **process** function.
 A generator can be part of the pipeline, and is recommended to be the first item to when using Pipeline in parallel mode.
 When in parallel mode, PypeRaptor provides a Device as in a way to reserve resources and avoid racing conditions among its threads.
 
+For more details and explanation over PypeRaptor goto: [PypeRaptor Doc](https://fsan.github.io/post/pyperaptor/)
+
 ## Installation
 
 ``` pip install pyperaptor ```

@@ -162,6 +162,19 @@ class TestNode(unittest.TestCase):
         result = p.push()
         assert result is None
 
+    def test_pipeline_push_with_object(self):
+        class Anything():
+            def __init__(self):
+                pass
+
+            def __call__(self):
+                return 42
+
+        p = Pipeline([Anything()])
+        p.lock()
+        result = p.push()
+        assert result is 42
+
     def test_pipeline_process_single_thread(self):
         def sum1(x):
             return x + 1

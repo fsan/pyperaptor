@@ -177,3 +177,56 @@ p.process(list(range(10)))
 # ...
 ```
 
+* Buffering single thread and processing in parallel
+
+```python
+from pyperaptor import Device, Node, Pipeline
+import time, copy, threading
+
+def heavy_work(x):
+    # doing something heavy
+    time.sleep(1)
+    print("doing heavy work at ", threading.current_thread().name)
+    return True
+
+def wrapper(x = None):
+    if x:
+        return heavy_work(x)
+
+def slow_number_yielder():
+    for a in range(5):
+        time.sleep(0.2)
+        yield a
+        
+class Buffer():
+    def __init__(self, limit_break = 5):
+        self.__lim__ = limit_break
+        self.elems = []
+        
+    def __call__(self, x):
+        print("calling buffer")
+        self.elems.append(x)
+        if len(self.elems) == self.__lim__ :
+            self.elems.append(x)
+            c = copy.deepcopy(self.elems)
+            self.elems.clear()
+            return c
+
+BUFFER = Device("buffer")
+        
+p = Pipeline([wrapper], parallel=True, workers=5)
+
+fs = [
+    slow_number_yielder,
+    Node(Buffer(), dev=BUFFER),
+    p
+]
+
+q = Pipeline(fs)
+
+p.lock()
+q.lock()
+
+result = q.process()
+print(result)
+```

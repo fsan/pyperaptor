@@ -5,9 +5,9 @@ with open("README.md", "r") as fh:
 setup(
   name = 'pyperaptor',
   packages = ['pyperaptor'],
-  version = '0.1.3',
+  version = '0.1.3.1',
   license='MIT',
-  description = 'Small pipeline organizer for multiprocessing execution',
+  description = 'Easy multithreading pipeline with Python 3',
   long_description = """
     PypeRaptor is a library that provides a functional pipeline structure.
     Each execution from the pipeline takes an input item from beginning to end and return the result.
@@ -26,7 +26,7 @@ setup(
   author = 'fsan',
   author_email = "pabyo.sansinaeti@gmail.com",
   url = 'https://github.com/fsan/pyperaptor',
-  download_url = 'https://github.com/fsan/pyperaptor/releases/download/0.1.3/pyperaptor-0.1.3.tar.gz',
+  download_url = 'https://github.com/fsan/pyperaptor/releases/download/0.1.3/pyperaptor-0.1.3.1.tar.gz',
   keywords = ['pipeline', 'dinossaurs', 'threading'],
   install_requires=[
       ],

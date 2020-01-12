@@ -1,5 +1,6 @@
 from typing import Callable, Generator
 from types import FunctionType
+import types
 import logging
 import copy
 
@@ -8,6 +9,8 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import BoundedSemaphore
 from collections.abc import Iterable
 import functools
+
+from functools import partial
 
 
 class PipelineNodeError(Exception):
@@ -112,7 +115,7 @@ class PipelineUnsupportedReferInParallelMode(Exception):
 class Pipeline():
     def __init__(self, functions_list: list = None,
                  parallel: bool = False,
-                 workers: int = 6,
+                 workers: int = 1,
                  executor: concurrent.futures.Executor = ThreadPoolExecutor):
         self.__tasks__ = []
         self.holding = {}
@@ -244,6 +247,8 @@ class Pipeline():
                             i = [i]
                     else:
                         f = f.push
+                elif isinstance(f, object) and not hasattr(f, "__code__"): 
+                    f = f.__call__
 
                 if isinstance(i, type(None)):
                     i = f()

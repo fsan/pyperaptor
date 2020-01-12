@@ -6,6 +6,7 @@ import copy
 import concurrent
 from concurrent.futures import ThreadPoolExecutor
 from threading import BoundedSemaphore
+from collections.abc import Iterable
 import functools
 
 
@@ -124,7 +125,10 @@ class Pipeline():
             executor=executor)
         if functions_list is not None and len(functions_list) > 0:
              for i in functions_list:
-                 self.add(Node(i))
+                if isinstance(i, Node):
+                    self.add(i)
+                else:
+                    self.add(Node(i))
 
 
     def set_parallel(
@@ -232,10 +236,24 @@ class Pipeline():
             try:
                 if self.is_parallel() and isinstance(n, Node) and n.has_device():
                     n.obtain_device()
+
+                if isinstance(f, Pipeline):
+                    if f.__parallel__:
+                        f = f.process
+                        if not isinstance(i, Iterable):
+                            i = [i]
+                    else:
+                        f = f.push
+
                 if isinstance(i, type(None)):
                     i = f()
                 elif isinstance(i, tuple):
-                    if f.__code__.co_argcount == 1:
+                    if f.__code__.co_argcount == 0:
+                        if r is None:
+                            i = f()
+                        else:
+                            i = f(*r.values())
+                    elif f.__code__.co_argcount == 1:
                         if r is None:
                             i = f(i)
                         else:
@@ -246,11 +264,18 @@ class Pipeline():
                         else:
                             i = f(*i, *r.values())
                 else:
-                    if r is None or len(r) == 0:
-                        i = f(i)
+                    if f.__code__.co_argcount > 0:
+                        if r is None or len(r) == 0:
+                            i = f(i)
+                        else:
+                            v = [self.holding[ik] for ik in list(*r.values())]
+                            i = f(i, *v)
                     else:
-                        v = [self.holding[ik] for ik in list(*r.values())]
-                        i = f(i, *v)
+                        if r is None or len(r) == 0:
+                            i = f()
+                        else:
+                            v = [self.holding[ik] for ik in list(*r.values())]
+                            i = f(*v)
 
             except Exception as e:
                 raise e
@@ -275,11 +300,11 @@ class Pipeline():
                         self, self, type(g))
                     )
 
-            if isinstance(g, FunctionType):
+            if isinstance(g, FunctionType) and g is not None:
                 for i in g():
                     i = self.push(i, start=1)
                     results.append(i)
-            elif isinstance(g, Generator):
+            elif isinstance(g, Generator) and g is not None:
                 for i in g:
                     i = self.push(i, start=1)
                     results.append(i)

@@ -1,5 +1,5 @@
 # PypeRaptor
-**Version:**  0.1.2
+**Version:**  0.1.3 [![Build Status](https://travis-ci.org/fsan/pyperaptor.svg?branch=master)](https://travis-ci.org/fsan/pyperaptor)
 
 PypeRaptor is a library that provides a functional pipeline structure.
 Each execution from the pipeline takes an input item from beginning to end and return the result.

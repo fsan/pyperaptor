@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'pyperaptor',
   packages = ['pyperaptor'],
-  version = '0.1.2',
+  version = '0.1.3',
   license='MIT',
   description = 'Small pipeline organizer for multiprocessing execution',
   long_description = """
@@ -23,7 +23,7 @@ setup(
   author = 'fsan',
   author_email = "pabyo.sansinaeti@gmail.com",
   url = 'https://github.com/fsan/pyperaptor',
-  download_url = 'https://github.com/fsan/pyperaptor/releases/download/0.1.2/pyperaptor-0.1.2.tar.gz',
+  download_url = 'https://github.com/fsan/pyperaptor/releases/download/0.1.3/pyperaptor-0.1.3.tar.gz',
   keywords = ['pipeline', 'dinossaurs', 'threading'],
   install_requires=[
       ],
@@ -33,5 +33,9 @@ setup(
     'Topic :: Other/Nonlisted Topic',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
   ],
+  python_requires='>=3.6',
 )

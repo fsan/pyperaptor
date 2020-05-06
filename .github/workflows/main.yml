@@ -1,0 +1,32 @@
+# pipeline autogen by mkdkr_exporter
+# https://gitlab.com/rosiney.gp/mkdkr_exporter
+
+name: CI
+
+on: [push]
+
+jobs:
+  python_3_6:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: python 3 6
+      run: make python.3.6
+  python_3_7:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: python 3 7
+      run: make python.3.7
+  python_3_8:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: python 3 8
+      run: make python.3.8
+  python_latest:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: python latest
+      run: make python.latest

@@ -1,0 +1,413 @@
+#!/usr/bin/env bash
+
+declare -A colors
+_MKDKR_TMP_DIR="${PWD}/.tmp"
+
+_pretty() {
+  colors+=(
+    ["black"]='\e[0;30m'
+    ["red"]='\e[0;31m'
+    ["green"]='\e[0;32m'
+    ["orange"]='\e[0;33m'
+    ["blue"]='\e[0;34m'
+    ["purple"]='\e[0;35m'
+    ["cyan"]='\e[0;36m'
+    ["light_gray"]='\e[0;37m'
+    ["dark_gray"]='\e[1;30m'
+    ["light_red"]='\e[1;31m'
+    ["light_green"]='\e[1;32m'
+    ["yellow"]='\e[1;33m'
+    ["light_blue"]='\e[1;34m'
+    ["light_purple"]='\e[1;35m'
+    ["light_cyan"]='\e[1;36m'
+    ["white"]='\e[1;37m'
+  )
+  key=${1:-white}
+  echo -e "${colors[${key}]}${*:2}\e[0m" >&2
+}
+
+_command_exist() {
+  if ! [ -x "$(command -v ${1})" ]; then
+    _pretty "red" "command: ${1} not found, please install it"
+    exit 1
+  fi
+}
+
+# https://stackoverflow.com/questions/16989598/comparing-php-version-numbers-using-bash#24067243
+_version_gt() {
+  test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "${1}"
+}
+
+_verify_make_version() {
+  _CURRENT="${1}"
+  if _version_gt "3.82" "$_CURRENT"; then
+    _pretty "red" "\nrequirements: [ERROR] make version needs to be > 3.81"
+    _pretty "yellow" "current: $_CURRENT\n\n"
+    exit 1
+  fi
+}
+
+_verify_git_version() {
+  _CURRENT="${1}"
+  if _version_gt "2" "$_CURRENT"; then
+    _pretty "yellow" "\nrequirements: [WARNING] git work better with version >= 2"
+    _pretty "yellow" "current: $_CURRENT\n\n"
+  fi
+}
+
+_verify_bash_version() {
+  _CURRENT="${1}"
+  if _version_gt "4" "$_CURRENT"; then
+    _pretty "red" "\nrequirements: [ERROR] use bash release > 3"
+    _pretty "yellow" "current: $_CURRENT\n\n"
+    exit 1
+  fi
+}
+
+_local_requirements() {
+  _command_exist "git"
+  _command_exist "make"
+  _command_exist "bash"
+  _verify_bash_version "$(bash --version | head -n 1 | awk '{ print $4 }')"
+  _verify_make_version "$(make --version | head -n 1 | awk '{ print $3 }')"
+  _verify_git_version "$(git --version | awk '{ print $3 }')"
+}
+
+# https://github.com/dylanaraps/pure-bash-bible#generate-a-uuid-v4
+_uuid() {
+  C="89ab"
+
+  for ((N = 0; N < 16; ++N)); do
+    B="$((RANDOM % 256))"
+
+    case "$N" in
+    6) printf '4%x' "$((B % 16))" ;;
+    8) printf '%c%x' "${C:$RANDOM%${#C}:1}" "$((B % 16))" ;;
+
+    3 | 5 | 7 | 9)
+      printf '%02x-' "$B"
+      ;;
+
+    *)
+      printf '%02x' "$B"
+      ;;
+    esac
+  done
+
+  printf '\n'
+}
+
+_image() {
+  docker ps | grep "${1}" | awk '{print $2}'
+}
+
+_remove_running_job() {
+  if [ "$(docker ps | grep job_${MKDKR_JOB_NAME})" != "" ]; then
+    _pretty "purple" "image changed, from: $(_image job_${MKDKR_JOB_NAME}) to: ${IMAGE}"
+    docker rm -f "job_${MKDKR_JOB_NAME}" >&2
+  fi
+}
+
+_branch_or_tag_name() {
+  _BRANCH=""
+  if [ "$GITHUB_ACTIONS" == "true" ]; then
+    _BRANCH="$(echo $GITHUB_REF | cut -d'/' -f3-)"
+  elif [ "$GITLAB_CI" == "true" ]; then
+    _BRANCH="$CI_COMMIT_REF_NAME"
+  elif [ "$JENKINS_URL" != "" ]; then
+    _BRANCH="$GIT_BRANCH"
+  elif [ "$TRAVIS" == "true" ]; then
+    _BRANCH="$TRAVIS_BRANCH"
+  elif [ "$CIRCLECI" == "true" ]; then
+    if [ "$CIRCLE_TAG" != "" ]; then
+      _BRANCH="$CIRCLE_TAG"
+    else
+      _BRANCH="$CIRCLE_BRANCH"
+    fi
+  elif [ "$(git rev-parse --is-inside-work-tree)" == true ]; then
+    _BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+  fi
+  echo "$_BRANCH"
+}
+
+_branch_or_tag_name_slug() {
+  echo "${1}" | sed -E 's/\/|_/-/g' | tr '[:upper:]' '[:lower:]'
+}
+
+_remote_git_clone() {
+  _ALIAS="${1}"
+  _REPOS="${2}"
+  _CHECKOUT="${3}"
+  _FILE="${4}"
+  _MKDKR_INCLUDE_PATH="${5}"
+
+  _pretty "light_cyan" "alias: ${_ALIAS}"
+  _pretty "light_cyan" "repos: ${_REPOS}"
+  _pretty "light_cyan" "checkout: ${_CHECKOUT}"
+  _pretty "light_cyan" "file: ${_FILE}\n"
+
+  git clone "${_REPOS}" \
+    --config advice.detachedHead=false \
+    --branch "${_CHECKOUT}" \
+    --depth "${MKDKR_INCLUDE_CLONE_DEPTH:-1}" \
+    "${_MKDKR_INCLUDE_PATH}" >&2
+
+  _EXIT_CODE="$?"
+  if [ "$_EXIT_CODE" != "0" ]; then
+    exit "$_EXIT_CODE"
+  fi
+
+  rm -rf "${_MKDKR_INCLUDE_PATH}/.git"
+  chmod -R o+w "${_MKDKR_INCLUDE_PATH}"
+}
+
+_remote_force_tag() {
+  _TAG="${1}"
+  _FILE="${2}"
+
+  if [ "$(grep -E '^[A-Z][A-Z\_]+\_TAG\=.*' "${_FILE}")" != "" ]; then
+    _KEY_VALUE=($(grep -E '^[A-Z][A-Z\_]+\_TAG\=.*' "${_FILE}" | tr '=' '\n'))
+    _pretty "purple" "replace ${_KEY_VALUE[0]}: ${_KEY_VALUE[1]} to ${_TAG}"
+    sed -i -E "s/(^[A-Z][A-Z\_]+\_TAG\=)(.*)/\1${_TAG}/g" "${_FILE}"
+  fi
+}
+
+_remote_include() {
+  if [ -f mkdkr.csv ]; then
+    declare -a _MKDKR_INCLUDES_LIST=()
+
+    _pretty "orange" "\ninclude\n"
+    while IFS= read -r _LINE; do
+      _PARAMS=($(echo "$_LINE" | tr "," " "))
+      _ALIAS="${_PARAMS[0]}"
+      _TAG="latest"
+
+      if [ -z "${_PARAMS[1]}" ]; then
+        _pretty "include: needs git path to clone for: ${_ALIAS}"
+        exit 1
+      fi
+
+      _REPOS="${_PARAMS[1]}"
+      _CHECKOUT="master"
+      _MK="main.mk"
+
+      if [ "${_PARAMS[2]}" ]; then
+        _CHECKOUT="${_PARAMS[2]}"
+        _TAG="$_CHECKOUT"
+      fi
+
+      if [ "${_PARAMS[3]}" ]; then
+        _MK="${_PARAMS[3]}"
+      fi
+
+      mkdir -p "${_MKDKR_TMP_DIR}/includes"
+      _MKDKR_INCLUDE_PATH="${_MKDKR_TMP_DIR}/includes/${_ALIAS}_$(_uuid)"
+
+      _remote_git_clone "${_ALIAS}" "${_REPOS}" "${_CHECKOUT}" "${_MK}" "${_MKDKR_INCLUDE_PATH}"
+      _remote_force_tag "${_TAG}" "${_MKDKR_INCLUDE_PATH}/${_MK}"
+
+      _MKDKR_INCLUDES_LIST+=("${_MKDKR_INCLUDE_PATH}/${_MK}")
+    done < <(grep -v '^ *#' <mkdkr.csv)
+
+    echo "${_MKDKR_INCLUDES_LIST[*]}"
+  fi
+
+}
+
+_header_render() {
+  cat <<EOF
+.EXPORT_ALL_VARIABLES:
+.ONESHELL:
+SHELL = bash
+
+MKDKR_BRANCH_NAME=$MKDKR_BRANCH_NAME
+MKDKR_BRANCH_NAME_SLUG=$MKDKR_BRANCH_NAME_SLUG
+
+define dkr =
+  source .mkdkr
+  \$(eval MKDKR_JOB_NAME=\$(shell source .mkdkr; _job_uniq_name \$(@)))
+  \$(eval MKDKR_JOB_STDOUT="${_MKDKR_TMP_DIR}/\${MKDKR_JOB_NAME}.log")
+  trap _job_destroy EXIT
+  _pretty "orange" "\nstart: \$(@)\n"
+endef
+
+define stdout =
+  if [ -f \$(MKDKR_JOB_STDOUT) ]; then cat \$(MKDKR_JOB_STDOUT); fi
+endef
+EOF
+}
+
+_tmp_dir() {
+  if [ -d "${_MKDKR_TMP_DIR}" ]; then
+    find "${_MKDKR_TMP_DIR}" -name "mkdkr_header_*.mk" -type f -mmin +60 -delete
+    if [ -d "${_MKDKR_TMP_DIR}/includes" ]; then
+      find "${_MKDKR_TMP_DIR}/includes" -maxdepth 1 -type d -mmin +60 -exec rm -rf {} \;
+    fi
+  else
+    mkdir -p "${_MKDKR_TMP_DIR}"
+  fi
+}
+
+_header() {
+  _MKDKR_INCLUDE="${_MKDKR_TMP_DIR}/mkdkr_header_$(_uuid).mk"
+  _header_render >"${_MKDKR_INCLUDE}"
+  chmod o+w "${_MKDKR_INCLUDE}"
+  echo "${_MKDKR_INCLUDE}"
+}
+
+_job_uniq_name() {
+  if [ -z "${MKDKR_JOB_NAME}" ]; then
+    _MKDKR_JOB_NAME=$(echo "${1}_$(_uuid)" | sed 's/\//_/g')
+    export MKDKR_JOB_NAME="${_MKDKR_JOB_NAME}"
+  fi
+  echo "${MKDKR_JOB_NAME}"
+}
+
+_job_destroy() {
+  ALIVE=$(docker ps | grep "${MKDKR_JOB_NAME}" | awk '{print $1}')
+  if [ "${ALIVE[0]}" != "" ]; then
+    _pretty "cyan" "\ncleanup:"
+    docker ps | grep "${MKDKR_JOB_NAME}" | awk '{print $1}' | xargs -i{} docker rm -f {} >&2
+    if [ -f "${_MKDKR_TMP_DIR}/${MKDKR_JOB_NAME}.log" ]; then
+      rm "${_MKDKR_TMP_DIR}/${MKDKR_JOB_NAME}.log"
+    fi
+  fi
+
+  docker network rm "network_${MKDKR_JOB_NAME}"
+  _pretty "orange" "\ncompleted:"
+  times >&2
+}
+
+_exit_handler() {
+  _EXIT_CODE="${1}"
+  _EXPECTED="${2}"
+  if [ "${_EXIT_CODE}" != "${_EXPECTED:-0}" ]; then
+    _job_destroy
+    exit "${_EXIT_CODE}"
+  fi
+}
+
+_network_create() {
+  _NETWORK_EXIST="$(docker network ls | awk '{ print $2 }' | grep network_${MKDKR_JOB_NAME})"
+  if [ ! "${_NETWORK_EXIST}" ]; then
+    _pretty "orange" "network: network_${MKDKR_JOB_NAME}"
+    docker network create "network_${MKDKR_JOB_NAME}" ${MKDKR_NETWORK_ARGS} >&2
+    _EXIT_CODE="$?"
+    if [ "$_EXIT_CODE" != "0" ]; then
+      exit "$_EXIT_CODE"
+    fi
+  fi
+}
+
+slug() {
+  echo "${1}" | sed -E 's/:|\.|\/|-/_/g'
+}
+
+instance:() {
+  OLDIFS=$IFS
+  IFS='⠀' # Braille Pattern Blank (U+2800)
+  IMAGE="${1}"
+  ARGS="${*:2}"
+
+  _remove_running_job
+  _network_create
+
+  _pretty "cyan" "\ninstance: ${IMAGE} ${ARGS[*]}"
+
+  docker run --rm -d \
+    -v "${PWD}":"${PWD}" \
+    --workdir "${PWD}" \
+    --entrypoint "" \
+    --network "network_${MKDKR_JOB_NAME}" \
+    $ARGS \
+    --name "job_${MKDKR_JOB_NAME}" \
+    "${IMAGE}" sleep "${MKDKR_TTL:-3600}" >&2
+
+  _exit_handler "$?"
+  IFS=$OLDIFS
+}
+
+service:() {
+  OLDIFS=$IFS
+  IFS='⠀' # Braille Pattern Blank (U+2800)
+  IMAGE="${1}"
+  ARGS="${*:2}"
+
+  _remove_running_job
+  _network_create
+
+  _pretty "cyan" "\nservice: ${IMAGE} ${ARGS[*]}"
+
+  NETWORK_ALIAS="$(slug $IMAGE)"
+  _pretty "cyan" "network alias: ${NETWORK_ALIAS}"
+
+  SERVICE_COUNT="$(docker ps | grep -cE 'service_.*'${MKDKR_JOB_NAME})"
+
+  if [ "$SERVICE_COUNT" != "0" ]; then
+    SERVICE_COUNT="${SERVICE_COUNT}_"
+  else
+    SERVICE_COUNT=""
+  fi
+
+  docker run --rm -d \
+    -v "${PWD}":"${PWD}" \
+    --workdir "${PWD}" \
+    --network "network_${MKDKR_JOB_NAME}" \
+    --network-alias "$NETWORK_ALIAS" \
+    $ARGS \
+    --name "service_${SERVICE_COUNT}${MKDKR_JOB_NAME}" \
+    "${IMAGE}" >&2
+
+  _exit_handler "$?"
+  IFS=$OLDIFS
+}
+
+dind:() {
+  OLDIFS=$IFS
+  IFS='⠀' # Braille Pattern Blank (U+2800)
+  IMAGE="${1}"
+  ARGS="${*:2}"
+
+  _remove_running_job
+  _network_create
+
+  _pretty "cyan" "\ndind: ${IMAGE} ${ARGS[*]}"
+
+  docker run --rm -d \
+    -v "${PWD}":"${PWD}" \
+    --workdir "${PWD}" \
+    --entrypoint "" \
+    --network "network_${MKDKR_JOB_NAME}" \
+    $ARGS \
+    --privileged -v /var/run/docker.sock:/var/run/docker.sock \
+    --name "job_${MKDKR_JOB_NAME}" \
+    "${IMAGE}" sleep "${MKDKR_TTL:-3600}" >&2
+
+  _exit_handler "$?"
+  IFS=$OLDIFS
+}
+
+run:() {
+  CONTAINER_NAME="job_${MKDKR_JOB_NAME}"
+
+  _pretty "green" "\nrun: ${*}"
+
+  if [ ! -d "${_MKDKR_TMP_DIR}" ]; then
+    mkdir -p "${_MKDKR_TMP_DIR}"
+  fi
+
+  docker exec -i ${CONTAINER_NAME} ${MKDKR_SHELL:-sh} -c "$*" | tee "${_MKDKR_TMP_DIR}/${MKDKR_JOB_NAME}.log"
+
+  _exit_handler "${PIPESTATUS[0]}"
+}
+
+if [ "$1" == "init" ]; then
+
+  _local_requirements
+  _tmp_dir
+
+  MKDKR_BRANCH_NAME="$(_branch_or_tag_name)"
+  MKDKR_BRANCH_NAME_SLUG="$(_branch_or_tag_name_slug ${MKDKR_BRANCH_NAME})"
+
+  echo "$(_header) $(_remote_include)"
+fi
